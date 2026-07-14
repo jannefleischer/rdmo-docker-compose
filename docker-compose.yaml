@@ -70,7 +70,11 @@ services:
       - path: .env
         required: false
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready"]
+      # Explicit -U/-d: bare "pg_isready" defaults to the OS username
+      # ("postgres"), which was never created as a role here since
+      # POSTGRES_USER is "rdmo" - it still reported healthy (pg_isready
+      # doesn't need successful auth), just logged a FATAL every interval.
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 30s
       timeout: 20s
       retries: 3
