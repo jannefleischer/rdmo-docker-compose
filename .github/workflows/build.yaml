@@ -13,7 +13,7 @@ on:
         description: 'manual build test'
 
 jobs:
-  build:
+  build-task:
     runs-on: ubuntu-latest
     steps:
       - name: Clone repo
@@ -26,3 +26,15 @@ jobs:
         run: task config
       - name: Build images
         run: task build
+
+  # Builds via plain docker compose only, no Task involved, to prove Task is
+  # genuinely optional and not silently required for the stack to work.
+  build-plain-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@v4
+      - name: Validate compose configuration
+        run: docker compose -f docker-compose.yaml config --quiet
+      - name: Build images
+        run: docker compose -f docker-compose.yaml build

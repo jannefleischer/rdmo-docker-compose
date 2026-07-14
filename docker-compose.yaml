@@ -3,6 +3,12 @@
 # works standalone, without Task. Task (see Taskfile.yml) is an optional convenience
 # layer on top: it matches build args to your actual host UID/GID and adds shortcuts
 # (task logs, task sh, ...), but is not required to run the stack.
+#
+# "name" pins the compose project name to GLOBAL_PREFIX so plain `docker
+# compose ps` (no -p flag) finds the right containers - without it, compose
+# falls back to the checkout's directory name, which usually isn't
+# GLOBAL_PREFIX and makes running containers look "missing".
+name: ${GLOBAL_PREFIX:-rdc}
 services:
   # One-shot init container: caddy/postgres/rdmo all drop root permanently at
   # build time and run as an unprivileged, UID-mapped user. If VOLDIR doesn't
@@ -51,7 +57,7 @@ services:
       args:
         UID: ${LOCAL_UID:-1000}
         GID: ${LOCAL_GID:-1000}
-        POSTGRES_VERSION: ${POSTGRES_VERSION:-latest}
+        POSTGRES_VERSION: ${POSTGRES_VERSION:-16}
     container_name: ${GLOBAL_PREFIX:-rdc}-postgres
     restart: "${RESTART_POLICY:-always}"
     depends_on:

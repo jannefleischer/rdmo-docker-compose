@@ -19,7 +19,10 @@ env:
 
 vars:
   COMPOSE_FILES: '-f docker-compose.yaml{{if .POSTGRES_EXPOSED_PORT}} -f docker-compose.postgres-port.yaml{{end}}'
-  COMPOSE: 'docker compose -p "{{.GLOBAL_PREFIX | default "rdc"}}" {{.COMPOSE_FILES}}'
+  # No explicit -p here: docker-compose.yaml's own top-level "name" (derived
+  # from GLOBAL_PREFIX) already sets the project name consistently, for Task
+  # and plain docker compose alike.
+  COMPOSE: 'docker compose {{.COMPOSE_FILES}}'
 
 tasks:
   default:
@@ -70,6 +73,11 @@ tasks:
     desc: tail logs of all containers
     cmds:
       - '{{.COMPOSE}} logs -f'
+
+  logs-once:
+    desc: print the current logs of all containers once, without following (e.g. for CI)
+    cmds:
+      - '{{.COMPOSE}} logs --no-color'
 
   sh:
     desc: open a shell inside the rdmo container
