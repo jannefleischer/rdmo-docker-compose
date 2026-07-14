@@ -33,7 +33,7 @@ RUN cat ${HOME}/tpl/add_to_bashrc >> ~/.bashrc
 RUN chown -R "${USER}:${USER}" "${HOME}"
 
 USER "${USER}"
-RUN  python -m pip install rdmo[allauth,postgres,gunicorn,openapi]==2.3.2
+RUN  python -m pip install rdmo[allauth,postgres,gunicorn,openapi]==2.5.0
 
 CMD ["/drun.sh"]
 #CMD ["tail", "-f", "/dev/null"]

@@ -1,7 +1,0 @@
----
-# Optional overlay: only included by Task when POSTGRES_EXPOSED_PORT is set,
-# to publish postgres on the docker host for external tools (psql, backups, ...).
-services:
-  postgres:
-    ports:
-      - "${POSTGRES_EXPOSED_PORT}:5432"

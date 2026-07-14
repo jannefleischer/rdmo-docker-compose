@@ -1,9 +1,11 @@
 ---
 version: '3'
 
-# Load configuration: values from the (optional, git-ignored) root ".env"
-# take precedence over the tracked defaults in "docker/.env.defaults".
-dotenv: ['.env', 'docker/.env.defaults']
+# Task is an optional convenience layer; the stack also runs with plain
+# "docker compose" (docker-compose.yaml ships sensible defaults for every
+# variable). Load configuration: values from the (optional, git-ignored)
+# ".env" take precedence over the tracked defaults in ".env.defaults".
+dotenv: ['.env', '.env.defaults']
 
 env:
   LOCAL_UID:
@@ -14,11 +16,10 @@ env:
     sh: |
       gid=$(id -g)
       if [ "${gid}" = "0" ]; then echo 1000; else echo "${gid}"; fi
-  VOLDIR: '{{.TASKFILE_DIR}}/vol'
 
 vars:
-  COMPOSE_FILES: '-f docker/docker-compose.yaml{{if .POSTGRES_EXPOSED_PORT}} -f docker/docker-compose.postgres-port.yaml{{end}}'
-  COMPOSE: 'docker compose -p "{{.GLOBAL_PREFIX}}" {{.COMPOSE_FILES}}'
+  COMPOSE_FILES: '-f docker-compose.yaml{{if .POSTGRES_EXPOSED_PORT}} -f docker-compose.postgres-port.yaml{{end}}'
+  COMPOSE: 'docker compose -p "{{.GLOBAL_PREFIX | default "rdc"}}" {{.COMPOSE_FILES}}'
 
 tasks:
   default:
@@ -27,20 +28,13 @@ tasks:
       - task: build
       - task: run
 
-  prep:
-    desc: create the folders used to persist volume data
-    cmds:
-      - mkdir -p vol/log vol/postgres
-
   build:
     desc: build the images, relying on normal docker layer caching
-    deps: [prep]
     cmds:
       - '{{.COMPOSE}} build'
 
   build-fresh:
     desc: rebuild the images from scratch, ignoring the cache and pulling fresh base images
-    deps: [prep]
     cmds:
       - '{{.COMPOSE}} build --no-cache --pull'
 
@@ -80,7 +74,7 @@ tasks:
   sh:
     desc: open a shell inside the rdmo container
     cmds:
-      - 'docker exec -it "{{.GLOBAL_PREFIX}}-rdmo" /bin/bash'
+      - 'docker exec -it "{{.GLOBAL_PREFIX | default "rdc"}}-rdmo" /bin/bash'
 
   bkp:
     desc: make a backup of the vol folder

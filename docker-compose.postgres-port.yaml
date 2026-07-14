@@ -1,0 +1,9 @@
+---
+# Optional overlay to publish postgres on the docker host, e.g. for external
+# tools (psql, backups, ...). Task includes this automatically when
+# POSTGRES_EXPOSED_PORT is set; with plain docker compose add it explicitly:
+#   docker compose -f docker-compose.yaml -f docker-compose.postgres-port.yaml up -d
+services:
+  postgres:
+    ports:
+      - "${POSTGRES_EXPOSED_PORT}:5432"
