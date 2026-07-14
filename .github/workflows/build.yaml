@@ -16,15 +16,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Install gettext
-        run: sudo apt update -y && sudo apt install -y gettext
       - name: Clone repo
-        run: git clone https://github.com/rdmorganiser/rdmo-docker-compose.git
-      - name: Try to build
-        run: |
-          cd rdmo-docker-compose
-          make prep
-          cat docker/docker-compose.yaml \
-            | sed -r 's/((U|G)ID: )0/\11000/g' > dc.tmp
-          cp -f dc.tmp docker/docker-compose.yaml
-          cd docker && docker compose build
+        uses: actions/checkout@v4
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+      - name: Validate compose configuration
+        run: task config
+      - name: Build images
+        run: task build

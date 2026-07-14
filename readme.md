@@ -1,6 +1,6 @@
 # RDMO Docker Compose ![build](https://github.com/rdmorganiser/rdmo-docker-compose/actions/workflows/build.yaml/badge.svg)
 
-! *Please note that with RDMO 2.0.0 the configuration mechanism of this docker setup has changed. From now on a `conf.toml` in the root folder of the repository is used.* Please see [Configuration &amp; Usage](#configuration--usage) for more information.
+! *Please note that the configuration mechanism of this docker setup has changed. Configuration is now a plain `.env` file in the root folder of the repository, and the stack is built and run via [Task](https://taskfile.dev) instead of `make`.* Please see [Configuration &amp; Usage](#configuration--usage) for more information.
 
 <!-- toc -->
 
@@ -34,14 +34,14 @@ Note that the `vol` folder is mounted as a single volume. This provides addition
 
 ## Configuration & Usage
 
-1. Declare your settings in `conf.toml`
+1. Declare your settings in a root-level `.env` file
 
-   The basic settings are stored in `docker/baseconf.toml`. These settings are loaded and passed to the container but can be overwritten in your `conf.toml`. You can either make a copy of the basic settings and change what suits your needs or just manually pick the settings that you need to adjust and declare them inside your `conf.toml`.
+   The basic settings are stored in `docker/.env.defaults`. These settings are loaded and passed to the containers but can be overwritten in a `.env` file in the repository root (this file is git-ignored). You only need to declare the keys you actually want to change; everything else falls back to the defaults.
 
-   Please note that you might need to change the `ALLOWED_HOSTS` entry depending on your server setup. The URL or IP under which RDMO is served needs to be allowed by putting it into the list. Usually the allowed hosts are declared in the `local.py`. In this docker compose setup we decided to move it to the environment variables which are generated from the toml settings here and might need to be adjusted.
+   Please note that you might need to change the `ALLOWED_HOSTS` entry depending on your server setup. The URL or IP under which RDMO is served needs to be allowed by putting it into the list. Usually the allowed hosts are declared in the `local.py`. In this docker compose setup we decided to move it to an environment variable instead, which might need to be adjusted.
 
    It is possible to change the restart policy of all three Docker services via changing the `RESTART_POLICY` variable.
-2. Build by running `make`
+2. Build and run by running [`task`](https://taskfile.dev) (see `task --list` for all available tasks, e.g. `task logs` or `task sh`)
 3. Maybe create an RDMO user
 
    Note that we decided not to automatically create any user account for the freshly created RDMO instance. You may want to do this manually.
@@ -63,6 +63,6 @@ Note that the `vol` folder is mounted as a single volume. This provides addition
 
 You can have multiple running RDMO instances on a single docker host as long as you pay attention to three things.
 
-1. Use different folders containing the `rdmo-docker-compose` repo to make sure docker-compose considers your build attempts to be different projects. Unfortunately currently there is no manual configuration for this because the `COMPOSE_PROJECT_NAME` option seems to be broken.
-2. Make sure to use different `GLOBAL_PREFIX` settings in your `variables.local` to avoid conflicts between your docker containers and volumes.
+1. Use different folders containing the `rdmo-docker-compose` repo to make sure docker compose considers your build attempts to be different projects.
+2. Make sure to use different `GLOBAL_PREFIX` settings in your `.env` to avoid conflicts between your docker containers and volumes.
 3. And obviously change the `FINALLY_EXPOSED_PORT` settings to make sure to use a free port to expose RDMO.
