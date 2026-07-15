@@ -13,7 +13,7 @@ fi
 
 cd "${RDMO_APP}" && {
   python manage.py migrate
-  python manage.py download_vendor_files
+  #python manage.py download_vendor_files
   python manage.py collectstatic --no-input
   python manage.py setup_groups
 }

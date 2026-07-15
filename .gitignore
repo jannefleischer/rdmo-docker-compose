@@ -4,9 +4,6 @@
 tmp/
 vol/
 .env
-docker-compose.yaml
-conf.toml
-docker/postgres/Dockerfile
 
 *.toml.zip
 /p2r.yaml

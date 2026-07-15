@@ -13,18 +13,28 @@ on:
         description: 'manual build test'
 
 jobs:
-  build:
+  build-task:
     runs-on: ubuntu-latest
     steps:
-      - name: Install gettext
-        run: sudo apt update -y && sudo apt install -y gettext
       - name: Clone repo
-        run: git clone https://github.com/rdmorganiser/rdmo-docker-compose.git
-      - name: Try to build
-        run: |
-          cd rdmo-docker-compose
-          make prep
-          cat docker/docker-compose.yaml \
-            | sed -r 's/((U|G)ID: )0/\11000/g' > dc.tmp
-          cp -f dc.tmp docker/docker-compose.yaml
-          cd docker && docker compose build
+        uses: actions/checkout@v4
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+      - name: Validate compose configuration
+        run: task config
+      - name: Build images
+        run: task build
+
+  # Builds via plain docker compose only, no Task involved, to prove Task is
+  # genuinely optional and not silently required for the stack to work.
+  build-plain-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@v4
+      - name: Validate compose configuration
+        run: docker compose -f docker-compose.yaml config --quiet
+      - name: Build images
+        run: docker compose -f docker-compose.yaml build

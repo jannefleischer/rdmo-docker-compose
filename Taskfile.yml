@@ -1,79 +1,95 @@
 ---
 version: '3'
 
+# Task is an optional convenience layer; the stack also runs with plain
+# "docker compose" (docker-compose.yaml ships sensible defaults for every
+# variable). Load configuration: values from the (optional, git-ignored)
+# ".env" take precedence over the tracked defaults in ".env.defaults".
+dotenv: ['.env', '.env.defaults']
+
 env:
-  CURDIR:
-    sh: pwd
-  USER_ID:
+  LOCAL_UID:
     sh: |
       uid=$(id -u)
-      if [[ "${uid}" == "0" ]]; then echo 1000; else echo ${uid}; fi
-  GROUP_ID:
+      if [ "${uid}" = "0" ]; then echo 1000; else echo "${uid}"; fi
+  LOCAL_GID:
     sh: |
       gid=$(id -g)
-      if [[ "${gid}" == "0" ]]; then echo 1000; else echo ${gid}; fi
-  COMPOSE_PROJECT_NAME:
-    sh: stoml conf.toml "global_prefix"
+      if [ "${gid}" = "0" ]; then echo 1000; else echo "${gid}"; fi
+
+vars:
+  COMPOSE_FILES: '-f docker-compose.yaml{{if .POSTGRES_EXPOSED_PORT}} -f docker-compose.postgres-port.yaml{{end}}'
+  # No explicit -p here: docker-compose.yaml's own top-level "name" (derived
+  # from GLOBAL_PREFIX) already sets the project name consistently, for Task
+  # and plain docker compose alike.
+  COMPOSE: 'docker compose {{.COMPOSE_FILES}}'
 
 tasks:
   default:
-    desc: default corresponds to build and run
+    desc: build and run the stack
     cmds:
       - task: build
       - task: run
 
-  prep:
+  build:
+    desc: build the images, relying on normal docker layer caching
     cmds:
-      - cmd: |
-          if [[ "$(whoami)" == "root" ]]; then
-            chown -R ${USER_ID}:${GROUP_ID} vol
-          fi
-      - cmd: sh/prepare.sh
+      - '{{.COMPOSE}} build'
+
+  build-fresh:
+    desc: rebuild the images from scratch, ignoring the cache and pulling fresh base images
+    cmds:
+      - '{{.COMPOSE}} build --no-cache --pull'
+
+  run:
+    desc: start the stack in the background
+    cmds:
+      - '{{.COMPOSE}} up -d'
+
+  restart:
+    desc: restart all containers
+    cmds:
+      - '{{.COMPOSE}} restart'
 
   rebuild:
-    desc: stop and remove running docker, run new one
+    desc: stop and remove the stack, then build and start it again
     cmds:
       - task: rm
       - task: build
       - task: run
 
-  run:
-    desc: set the environment variables and run the containers
-    dir: docker
-    cmds:
-      - cmd: docker-compose up -d
-
-  build:
-    desc: just build the containers, do not run them
-    dir: docker
-    cmds:
-      - task: prep
-      - cmd: docker-compose build --no-cache
-
   rm:
-    desc: remove the containers
-    dir: docker
+    desc: stop and remove the containers, networks and images of this stack
     cmds:
-      - cmd: docker-compose down --rmi all --remove-orphans
+      - '{{.COMPOSE}} down --rmi all --remove-orphans'
 
   ls:
-    desc: list images and containers belonging to this setup
+    desc: list images and containers belonging to this stack
     cmds:
-      - cmd: docker-compose images
-      - cmd: docker-compose ps
+      - '{{.COMPOSE}} images'
+      - '{{.COMPOSE}} ps'
 
-  log:
-    desc: tail logs
+  logs:
+    desc: tail logs of all containers
     cmds:
-      - cmd: docker-compose logs -f
+      - '{{.COMPOSE}} logs -f'
+
+  logs-once:
+    desc: print the current logs of all containers once, without following (e.g. for CI)
+    cmds:
+      - '{{.COMPOSE}} logs --no-color'
 
   sh:
-    desc: open bash inside the application container
+    desc: open a shell inside the rdmo container
     cmds:
-      - cmd: docker exec -it $(docker ps --filter 'Name=keycloak$'
-          -q) /bin/bash
+      - 'docker exec -it "{{.GLOBAL_PREFIX | default "rdc"}}-rdmo" /bin/bash'
 
   bkp:
-    desc: make backup of vol folder
+    desc: make a backup of the vol folder
     cmds:
-      - cmd: sh/make_vol_backup.sh
+      - sh/make_vol_backup.sh
+
+  config:
+    desc: render and validate the fully interpolated compose configuration
+    cmds:
+      - '{{.COMPOSE}} config --quiet'

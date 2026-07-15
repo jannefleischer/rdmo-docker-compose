@@ -1,0 +1,108 @@
+---
+# All ${VAR} placeholders have sensible fallbacks, so `docker compose up -d --build`
+# works standalone, without Task. Task (see Taskfile.yml) is an optional convenience
+# layer on top: it matches build args to your actual host UID/GID and adds shortcuts
+# (task logs, task sh, ...), but is not required to run the stack.
+#
+# "name" pins the compose project name to GLOBAL_PREFIX so plain `docker
+# compose ps` (no -p flag) finds the right containers - without it, compose
+# falls back to the checkout's directory name, which usually isn't
+# GLOBAL_PREFIX and makes running containers look "missing".
+name: ${GLOBAL_PREFIX:-rdc}
+services:
+  # One-shot init container: caddy/postgres/rdmo all drop root permanently at
+  # build time and run as an unprivileged, UID-mapped user. If VOLDIR doesn't
+  # exist yet, docker creates it as root, which that unprivileged user can't
+  # write to. This fixes ownership once, as root, before the real services
+  # start, without changing their (deliberately) unprivileged runtime user.
+  fixperms:
+    image: busybox:latest
+    container_name: ${GLOBAL_PREFIX:-rdc}-fixperms
+    restart: "no"
+    command: sh -c "mkdir -p /vol/log /vol/postgres && chown -R ${LOCAL_UID:-1000}:${LOCAL_GID:-1000} /vol"
+    volumes:
+      - ${VOLDIR:-./vol}:/vol
+
+  caddy:
+    build:
+      context: docker/caddy
+      args:
+        UID: ${LOCAL_UID:-1000}
+        GID: ${LOCAL_GID:-1000}
+    container_name: ${GLOBAL_PREFIX:-rdc}-caddy
+    restart: "${RESTART_POLICY:-always}"
+    depends_on:
+      rdmo:
+        condition: service_healthy
+      fixperms:
+        condition: service_completed_successfully
+    ports:
+      - "${FINALLY_EXPOSED_PORT:-8484}:8080"
+    volumes:
+      - ${VOLDIR:-./vol}:/vol
+    env_file:
+      - .env.defaults
+      - path: .env
+        required: false
+    healthcheck:
+      test: curl --fail http://localhost:8080 || exit 1
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 60s
+
+  postgres:
+    build:
+      context: docker/postgres
+      args:
+        UID: ${LOCAL_UID:-1000}
+        GID: ${LOCAL_GID:-1000}
+        POSTGRES_VERSION: ${POSTGRES_VERSION:-16}
+    container_name: ${GLOBAL_PREFIX:-rdc}-postgres
+    restart: "${RESTART_POLICY:-always}"
+    depends_on:
+      fixperms:
+        condition: service_completed_successfully
+    volumes:
+      - ${VOLDIR:-./vol}/postgres:/var/lib/postgresql/data
+    env_file:
+      - .env.defaults
+      - path: .env
+        required: false
+    healthcheck:
+      # Explicit -U/-d: bare "pg_isready" defaults to the OS username
+      # ("postgres"), which was never created as a role here since
+      # POSTGRES_USER is "rdmo" - it still reported healthy (pg_isready
+      # doesn't need successful auth), just logged a FATAL every interval.
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 60s
+
+  rdmo:
+    build:
+      context: docker/rdmo
+      args:
+        UID: ${LOCAL_UID:-1000}
+        GID: ${LOCAL_GID:-1000}
+        RDMO_INSTALL_URL: ${RDMO_INSTALL_URL:-}
+    container_name: ${GLOBAL_PREFIX:-rdc}-rdmo
+    restart: "${RESTART_POLICY:-always}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fixperms:
+        condition: service_completed_successfully
+    volumes:
+      - ${VOLDIR:-./vol}:/vol
+    env_file:
+      - .env.defaults
+      - path: .env
+        required: false
+    healthcheck:
+      test: curl --fail http://localhost:8080 || exit 1
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 60s

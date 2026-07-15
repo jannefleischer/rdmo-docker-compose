@@ -1,6 +1,6 @@
 # RDMO Docker Compose ![build](https://github.com/rdmorganiser/rdmo-docker-compose/actions/workflows/build.yaml/badge.svg)
 
-! *Please note that with RDMO 2.0.0 the configuration mechanism of this docker setup has changed. From now on a `conf.toml` in the root folder of the repository is used.* Please see [Configuration &amp; Usage](#configuration--usage) for more information.
+! *Please note that the configuration mechanism of this docker setup has changed. Configuration is now a plain `.env` file in the root folder of the repository.* Please see [Configuration &amp; Usage](#configuration--usage) for more information.
 
 <!-- toc -->
 
@@ -18,30 +18,34 @@ This repository contains RDMO docker images that are held together by [docker co
 
 ### Dockers
 
-Three containers are going to be created running `Caddy`, `PostgreSQL` and `RDMO`.
+Four containers are going to be created: `Caddy`, `PostgreSQL`, `RDMO`, and a short-lived `fixperms` helper. `caddy`, `postgres` and `rdmo` each run as an unprivileged, UID/GID-mapped user rather than root. `fixperms` runs once, as root, before the other three start: it creates `vol/log` and `vol/postgres` if they don't exist yet and makes sure they (and the rest of `vol/`) are owned by that same UID/GID, then exits. This is only needed because docker would otherwise create missing bind-mount folders as root, which the unprivileged containers couldn't write to; the three long-running services never run as root themselves.
 
 ### Volumes
 
-During build four folders later used as volumes will be created under `vol/`. They contain the following:
+`VOLDIR` on the docker host (`vol/` next to `docker-compose.yaml` by default, see `VOLDIR` in [Configuration & Usage](#configuration--usage) to relocate it, e.g. to a different disk) holds everything that needs to persist or be shared between containers:
 
 1. `log` log files
 2. `postgres` database
 3. `rdmo-app` rdmo app installation
 
-Note that the `vol` folder is mounted as a single volume. This provides additional flexibility because any folder created inside `vol` will be available inside the `caddy` and the `rdmo` container and may be used to transfer data between the docker host and these two containers.
+Note that `VOLDIR` is bind-mounted directly (not a named docker volume), so any folder created inside it is available inside the `caddy` and the `rdmo` container and may be used to transfer data between the docker host and these two containers.
 
 ![](./graph/architecture.svg)
 
 ## Configuration & Usage
 
-1. Declare your settings in `conf.toml`
+1. Declare your settings in a root-level `.env` file
 
-   The basic settings are stored in `docker/baseconf.toml`. These settings are loaded and passed to the container but can be overwritten in your `conf.toml`. You can either make a copy of the basic settings and change what suits your needs or just manually pick the settings that you need to adjust and declare them inside your `conf.toml`.
+   The basic settings are stored in `.env.defaults`. These settings are loaded and passed to the containers but can be overwritten in a `.env` file next to it in the repository root (this file is git-ignored). You only need to declare the keys you actually want to change; everything else falls back to the defaults.
 
-   Please note that you might need to change the `ALLOWED_HOSTS` entry depending on your server setup. The URL or IP under which RDMO is served needs to be allowed by putting it into the list. Usually the allowed hosts are declared in the `local.py`. In this docker compose setup we decided to move it to the environment variables which are generated from the toml settings here and might need to be adjusted.
+   Please note that you might need to change the `ALLOWED_HOSTS` entry depending on your server setup. The URL or IP under which RDMO is served needs to be allowed by putting it into the list. Usually the allowed hosts are declared in the `local.py`. In this docker compose setup we decided to move it to an environment variable instead, which might need to be adjusted.
 
    It is possible to change the restart policy of all three Docker services via changing the `RESTART_POLICY` variable.
-2. Build by running `make`
+
+   `VOLDIR` controls where persistent data (see [Volumes](#volumes)) is stored on the docker host; it defaults to `./vol` but can be set to an absolute path to store it elsewhere.
+2. Build and run the stack
+
+   Plain `docker compose up -d --build` works out of the box, `docker-compose.yaml` ships sensible defaults for every setting. Optionally, install [Task](https://taskfile.dev) for a bit of convenience on top (matches build args to your host UID/GID, adds shortcuts like `task logs` or `task sh`, see `task --list` for all of them) and run `task` instead. Neither is required to use the other.
 3. Maybe create an RDMO user
 
    Note that we decided not to automatically create any user account for the freshly created RDMO instance. You may want to do this manually.
@@ -63,6 +67,6 @@ Note that the `vol` folder is mounted as a single volume. This provides addition
 
 You can have multiple running RDMO instances on a single docker host as long as you pay attention to three things.
 
-1. Use different folders containing the `rdmo-docker-compose` repo to make sure docker-compose considers your build attempts to be different projects. Unfortunately currently there is no manual configuration for this because the `COMPOSE_PROJECT_NAME` option seems to be broken.
-2. Make sure to use different `GLOBAL_PREFIX` settings in your `variables.local` to avoid conflicts between your docker containers and volumes.
+1. Use different folders containing the `rdmo-docker-compose` repo to make sure docker compose considers your build attempts to be different projects.
+2. Make sure to use different `GLOBAL_PREFIX` settings in your `.env` to avoid conflicts between your docker containers and volumes.
 3. And obviously change the `FINALLY_EXPOSED_PORT` settings to make sure to use a free port to expose RDMO.
