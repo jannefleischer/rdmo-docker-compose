@@ -7,5 +7,4 @@ vol/
 
 *.toml.zip
 /p2r.yaml
-
-rdmo_src
+vol_old

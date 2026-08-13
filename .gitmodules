@@ -1,0 +1,6 @@
+[submodule "rdmo_src"]
+	path = rdmo_src
+	url = https://github.com/jannefleischer/rdmo.git
+[submodule "rdmo-catalog"]
+	path = rdmo-catalog
+	url = https://github.com/rdmorganiser/rdmo-catalog.git
