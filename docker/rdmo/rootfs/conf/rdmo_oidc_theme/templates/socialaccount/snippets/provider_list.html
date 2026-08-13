@@ -1,0 +1,91 @@
+{% comment %}
+Overrides rdmo/accounts/templates/socialaccount/snippets/provider_list.html.
+
+Identical to rdmo's original, except for the openid_connect branch: instead of
+rdmo's hardcoded keycloak logo it renders the image configured through
+OIDC_CLIENT_LINKIMAGE, and it does so for any provider_id rather than only for
+one literally named "keycloak". Without that setting the original behaviour is
+kept, keycloak logo included.
+
+The size cap matters: .socialaccount_providers is a fixed 42px high row (see
+core/css/base.scss), and an unconstrained logo - a 3244x996 png, or an svg
+carrying only a viewBox and no width/height - blows that row apart.
+
+Shipped with the rdmo image, refreshed into the app on every container start:
+edit docker/rdmo/rootfs/conf/rdmo_oidc_theme/ in the rdmo-docker-compose repo,
+not the copy in the app checkout.
+{% endcomment %}
+
+{% load socialaccount %}
+{% load static %}
+
+{% if not socialaccount_providers %}
+{% get_providers as socialaccount_providers %}
+{% endif %}
+
+{% for provider in socialaccount_providers %}
+
+{% if provider.id == "openid" %}
+{% for brand in provider.get_brands %}
+<li>
+    <a title="{{brand.name}}"
+        class="socialaccount_provider {{provider.id}} {{brand.id}}"
+        href="{% provider_login_url provider.id openid=brand.openid_url process=process %}">
+        {{brand.name}}
+    </a>
+</li>
+{% endfor %}
+{% endif %}
+
+{% if provider.id == 'orcid' %}
+
+<li class="socialaccount_provider_break">
+    <a title="{{provider.name}}" class="socialaccount_provider {{provider.id}}"
+        href="{% provider_login_url provider.id process=process scope=scope auth_params=auth_params %}">
+        <img src="{% static 'accounts/img/orcid-signin.png' %}" alt="ORCID sign in" />
+    </a>
+</li>
+
+{% elif provider.id == 'openid_connect' %}
+
+{% if settings.OIDC_CLIENT_LINKIMAGE_STATIC %}
+<li class="socialaccount_provider_break">
+    <a title="{{ provider.name }}" class="socialaccount_provider {{ provider.app.provider_id }}"
+        href="{% provider_login_url provider process=process scope=scope auth_params=auth_params %}">
+        <img src="{% static settings.OIDC_CLIENT_LINKIMAGE_STATIC %}"
+            alt="{{ provider.name }}"
+            style="max-height: 38px; width: auto;" />
+    </a>
+</li>
+{% elif provider.app.provider_id == 'keycloak' %}
+<li class="socialaccount_provider_break">
+    <a title="{{ provider.name }}" class="socialaccount_provider {{ provider.app.provider_id }}"
+        href="{% provider_login_url provider process=process scope=scope auth_params=auth_params %}">
+        <img src="{% static 'accounts/img/keycloak_logo_200px.svg' %}" alt="Keycloak sign in" />
+    </a>
+</li>
+{% else %}
+<li>
+    <a title="{{ provider.name }}" class="socialaccount_provider {{ provider.app.provider_id }}"
+        href="{% provider_login_url provider process=process scope=scope auth_params=auth_params %}">
+        {{ provider.name }}
+    </a>
+</li>
+{% endif %}
+
+{% else %}
+
+<li>
+    <a title="{{provider.name}}" class="socialaccount_provider {{provider.id}}"
+        href="{% provider_login_url provider.id process=process scope=scope auth_params=auth_params %}">
+        {% if provider.id == 'dummy' %}
+        <span class="fa fa-meh-o fa-2x"></span>
+        {% else %}
+        <span class="fa fa-{{provider.id}} fa-2x"></span>
+        {% endif %}
+    </a>
+</li>
+
+{% endif %}
+
+{% endfor %}

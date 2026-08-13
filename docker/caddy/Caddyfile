@@ -2,6 +2,29 @@
 	# debug
 	http_port 8080
 	auto_https disable_redirects
+
+	# By default caddy does not trust incoming X-Forwarded-* headers and
+	# replaces them with its own view of the request. Since this caddy only
+	# ever speaks plain http (tls is terminated by whatever proxy sits in
+	# front of it, if any), that means it would hand django
+	# "X-Forwarded-Proto: http" even on an https request, defeating
+	# SECURE_PROXY_SSL_HEADER. Django then builds http:// absolute urls -
+	# which breaks the oidc login, because the redirect_uri sent to the
+	# identity provider no longer matches the registered https one.
+	#
+	# Trusting the proxy's network keeps its header intact, while a standalone
+	# deployment (no proxy in front) is unaffected: caddy still sets the
+	# header itself for untrusted, i.e. public, clients.
+	#
+	# "private_ranges" only covers RFC1918. If the docker daemon hands out
+	# addresses from a pool outside of that (check with
+	# "docker network inspect <project>_default"), the gateway ends up
+	# untrusted and the header is dropped again - append that pool to
+	# CADDY_TRUSTED_PROXIES in .env then, e.g.
+	#   CADDY_TRUSTED_PROXIES=private_ranges 172.80.0.0/16
+	servers {
+		trusted_proxies static {$CADDY_TRUSTED_PROXIES:private_ranges}
+	}
 }
 
 :8080 {
